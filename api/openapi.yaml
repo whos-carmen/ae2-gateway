@@ -1,0 +1,495 @@
+openapi: 3.1.0
+info:
+  title: AE2 Gateway API
+  version: 0.1.0
+  description: Private, versioned API for read-only AE2 telemetry and controlled crafting.
+servers:
+  - url: /api
+security:
+  - gatewaySession: []
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: Service health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /v1/identity:
+    get:
+      operationId: getIdentity
+      responses:
+        "200":
+          description: Authenticated identity and Minecraft link state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Identity"
+  /v1/identity/link-code:
+    post:
+      operationId: createLinkCode
+      responses:
+        "201":
+          description: Short-lived code to confirm in Minecraft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkCode"
+  /v1/grids:
+    get:
+      operationId: listGrids
+      responses:
+        "200":
+          description: Enrolled grids visible to the caller
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revision, grids]
+                properties:
+                  revision:
+                    type: integer
+                    format: int64
+                  grids:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Grid"
+  /v1/grids/{gridId}/items:
+    get:
+      operationId: listItems
+      parameters:
+        - $ref: "#/components/parameters/GridId"
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5000
+            default: 200
+        - name: query
+          in: query
+          schema:
+            type: string
+            maxLength: 128
+        - name: craftable
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Paginated immutable inventory snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemPage"
+  /v1/grids/{gridId}/cpus:
+    get:
+      operationId: listCraftingCpus
+      parameters:
+        - $ref: "#/components/parameters/GridId"
+      responses:
+        "200":
+          description: Basic public crafting CPU status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revision, cpus]
+                properties:
+                  revision:
+                    type: integer
+                    format: int64
+                  cpus:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CraftingCpu"
+  /v1/grids/{gridId}/cpus/{cpuId}:
+    get:
+      operationId: getCraftingCpu
+      parameters:
+        - $ref: "#/components/parameters/GridId"
+        - name: cpuId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Live crafting status for one CPU
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CraftingCpuDetail"
+  /v1/grids/{gridId}/metrics:
+    get:
+      operationId: getGridMetrics
+      parameters:
+        - $ref: "#/components/parameters/GridId"
+      responses:
+        "200":
+          description: Power, channel, storage and device summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GridMetrics"
+  /v1/grids/{gridId}/plans:
+    post:
+      operationId: createCraftingPlan
+      parameters:
+        - $ref: "#/components/parameters/GridId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keyToken, amount]
+              properties:
+                keyToken:
+                  type: string
+                  maxLength: 256
+                amount:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                  maximum: 1000000000
+      responses:
+        "202":
+          description: Crafting calculation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CraftingPlan"
+  /v1/plans/{planId}:
+    get:
+      operationId: getCraftingPlan
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      responses:
+        "200":
+          description: Current plan state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CraftingPlan"
+  /v1/plans/{planId}/submit:
+    post:
+      operationId: submitCraftingPlan
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 128
+      responses:
+        "202":
+          description: Craft submission accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CraftingRequest"
+  /v1/requests/{requestId}:
+    get:
+      operationId: getCraftingRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Craft submission result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CraftingRequest"
+components:
+  securitySchemes:
+    gatewaySession:
+      type: apiKey
+      in: cookie
+      name: CF_Authorization
+  parameters:
+    GridId:
+      name: gridId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PlanId:
+      name: planId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    Health:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        version:
+          type: string
+        minecraftConnected:
+          type: boolean
+    Identity:
+      type: object
+      required: [subject, email, linked]
+      properties:
+        subject:
+          type: string
+        email:
+          type: string
+          format: email
+        linked:
+          type: boolean
+        minecraftUuid:
+          type: [string, "null"]
+          format: uuid
+        minecraftName:
+          type: [string, "null"]
+    LinkCode:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z2-9]{8}$"
+        expiresAt:
+          type: string
+          format: date-time
+    Grid:
+      type: object
+      required: [id, alias, online, booting, controllerState, permissions]
+      properties:
+        id:
+          type: string
+          format: uuid
+        alias:
+          type: string
+        online:
+          type: boolean
+        booting:
+          type: boolean
+        controllerState:
+          type: string
+          enum: [online, conflict, no_controller, unknown]
+        permissions:
+          type: array
+          items:
+            type: string
+            enum: [read, craft]
+    Item:
+      type: object
+      required: [keyToken, type, resourceId, displayName, amount, craftable]
+      properties:
+        keyToken:
+          type: string
+        type:
+          type: string
+          enum: [item, fluid, other]
+        resourceId:
+          type: string
+        displayName:
+          type: string
+        namespace:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        craftable:
+          type: boolean
+    ItemPage:
+      type: object
+      required: [revision, items]
+      properties:
+        revision:
+          type: integer
+          format: int64
+        nextCursor:
+          type: [string, "null"]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Item"
+    CraftingCpu:
+      type: object
+      required: [id, name, busy, storageBytes, coprocessors]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        busy:
+          type: boolean
+        outputName:
+          type: [string, "null"]
+        progress:
+          type: [number, "null"]
+        elapsedMillis:
+          type: [integer, "null"]
+          format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        coprocessors:
+          type: integer
+    CraftingCpuItem:
+      type: object
+      required: [displayName, resourceId, stored, crafting, scheduled]
+      properties:
+        displayName:
+          type: string
+        resourceId:
+          type: string
+        stored:
+          type: integer
+          format: int64
+          description: Amount held in the crafting CPU inventory
+        crafting:
+          type: integer
+          format: int64
+          description: Amount currently being crafted / waiting (AE2 waitingFor)
+        scheduled:
+          type: integer
+          format: int64
+          description: Amount still scheduled from remaining pattern tasks
+    CraftingCpuDetail:
+      type: object
+      required: [cpu, suspended, entries]
+      properties:
+        cpu:
+          $ref: "#/components/schemas/CraftingCpu"
+        suspended:
+          type: boolean
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CraftingCpuItem"
+    GridMetrics:
+      type: object
+      required:
+        [revision, powered, storedPower, maxStoredPower, averagePowerUsage, usedChannels, deviceCount]
+      properties:
+        revision:
+          type: integer
+          format: int64
+        powered:
+          type: boolean
+        storedPower:
+          type: number
+        maxStoredPower:
+          type: number
+        averagePowerUsage:
+          type: number
+        averagePowerInjection:
+          type: number
+        usedChannels:
+          type: integer
+        deviceCount:
+          type: integer
+        storedItemTypes:
+          type: integer
+        craftableItemTypes:
+          type: integer
+    Ingredient:
+      type: object
+      required: [displayName, amount]
+      properties:
+        displayName:
+          type: string
+        amount:
+          type: integer
+          format: int64
+    PlanEntry:
+      type: object
+      required: [displayName, stored, craft, missing]
+      properties:
+        displayName:
+          type: string
+        stored:
+          type: integer
+          format: int64
+          description: Amount already available in network storage for this plan step
+        craft:
+          type: integer
+          format: int64
+          description: Amount that must be crafted (AE2 craftAmount / "To craft")
+        missing:
+          type: integer
+          format: int64
+          description: Amount still unavailable after simulation
+    CraftingPlan:
+      type: object
+      required: [id, gridId, state, requestedName, amount, expiresAt, simulation, entries, missing]
+      properties:
+        id:
+          type: string
+          format: uuid
+        gridId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum: [calculating, ready, missing, failed, expired, submitted]
+        requestedName:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        bytes:
+          type: [integer, "null"]
+          format: int64
+        expiresAt:
+          type: string
+          format: date-time
+        simulation:
+          type: boolean
+          description: True when AE2 could not fully satisfy the request (partial / missing plan)
+        entries:
+          type: array
+          description: Full AE2-style crafting plan summary rows
+          items:
+            $ref: "#/components/schemas/PlanEntry"
+        missing:
+          type: array
+          description: Convenience list of entries with missing > 0
+          items:
+            $ref: "#/components/schemas/Ingredient"
+        error:
+          type: [string, "null"]
+    CraftingRequest:
+      type: object
+      required: [id, planId, state, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        planId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum: [accepted, submitted, rejected]
+        createdAt:
+          type: string
+          format: date-time
+        error:
+          type: [string, "null"]

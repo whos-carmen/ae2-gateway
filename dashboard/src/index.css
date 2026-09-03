@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --canvas: #e9ecef;
+  --surface: #ffffff;
+  --surface-2: #f5f6f7;
+  --surface-3: #e8ebee;
+  --sidebar: #f1f3f4;
+  --topbar: #202830;
+  --topbar-text: #f1f4f5;
+  --topbar-muted: #aeb7c0;
+  --text: #303942;
+  --text-secondary: #59646f;
+  --heading: #182129;
+  --muted: #7a8590;
+  --border: #d8dde1;
+  --border-strong: #c6ccd1;
+  --border-focus: #6d99ae;
+  --tree-line: #c5cbd0;
+  --hover: #e9f0f3;
+  --selected: #d9e7ed;
+  --selected-text: #182d37;
+  --input: #ffffff;
+  --table-head: #f1f3f4;
+  --row-alt: #fafbfb;
+  --accent: #e2a33a;
+  --accent-dark: #bd8121;
+  --accent-strong: #a46c11;
+  --accent-soft: #fff5df;
+  --button-text: #1d252b;
+  --green: #258657;
+  --green-bg: #edf8f2;
+  --green-border: #9acbb1;
+  --blue: #397ab9;
+  --blue-bg: #edf5fc;
+  --blue-border: #9fc1df;
+  --red: #b54141;
+  --red-bg: #fbeeee;
+  --red-border: #e0aaaa;
+  --amber: #d49628;
+  --focus: #2e88ad;
+  --focus-ring: rgb(46 136 173 / 15%);
+  --panel-shadow: 0 1px 2px rgb(15 25 35 / 5%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #171b1f;
+  --surface: #22272d;
+  --surface-2: #282e35;
+  --surface-3: #333a42;
+  --sidebar: #1d2227;
+  --topbar: #12171b;
+  --topbar-text: #e9edf0;
+  --topbar-muted: #89949e;
+  --text: #d2d8dd;
+  --text-secondary: #aeb7bf;
+  --heading: #f0f3f5;
+  --muted: #8c98a3;
+  --border: #343b43;
+  --border-strong: #424b54;
+  --border-focus: #6da0b6;
+  --tree-line: #424950;
+  --hover: #2b343b;
+  --selected: #2a414d;
+  --selected-text: #eef5f7;
+  --input: #181d21;
+  --table-head: #292f35;
+  --row-alt: #20262b;
+  --accent: #d89a32;
+  --accent-dark: #a9721e;
+  --accent-strong: #edb657;
+  --accent-soft: #3a3020;
+  --button-text: #171b1f;
+  --green: #55ba81;
+  --green-bg: #20362b;
+  --green-border: #356f4f;
+  --blue: #65a3dd;
+  --blue-bg: #203245;
+  --blue-border: #385c7b;
+  --red: #e07070;
+  --red-bg: #402526;
+  --red-border: #753d40;
+  --amber: #e3ad4b;
+  --focus: #66b6d5;
+  --focus-ring: rgb(102 182 213 / 16%);
+  --panel-shadow: 0 1px 3px rgb(0 0 0 / 22%);
+}
+
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+html, body, #root { min-width: 320px; min-height: 100%; margin: 0; }
+body { margin: 0; background: var(--canvas); }
+button, input { font: inherit; }
+::selection { color: var(--heading); background: var(--selected); }

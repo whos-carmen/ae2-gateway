@@ -1,0 +1,32 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="ae2_gateway"
+version="${file.jarVersion}"
+displayName="AE2 Gateway"
+description='''
+Loopback-only, access-controlled AE2 telemetry and two-phase crafting gateway.
+'''
+
+[[dependencies.ae2_gateway]]
+modId="forge"
+mandatory=true
+versionRange="[47.4.20,48)"
+ordering="NONE"
+side="SERVER"
+
+[[dependencies.ae2_gateway]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="SERVER"
+
+[[dependencies.ae2_gateway]]
+modId="ae2"
+mandatory=true
+versionRange="[15.5.0-uelm]"
+ordering="AFTER"
+side="SERVER"
