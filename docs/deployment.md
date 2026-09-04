@@ -1,47 +1,49 @@
-# Deployment and rollback runbook
+# Deployment
 
-This document is preparation only. Do not execute these steps against
-`star-tech-2` without explicit approval.
+Use this runbook only after you approve a production change. Do not run these
+steps against `star-tech-2` without that approval.
 
-## Prepared artifacts
+## Artifacts
 
-The packaging task produces:
+`./scripts/package.sh` produces:
 
 - remapped Forge mod JAR
-- Linux amd64 dashboard sidecar
-- SHA-256 checksum manifest
+- Linux amd64 sidecar binary
+- dashboard asset archive
+- SHA-256 checksums
 - Cloudflare ingress template
-- systemd service template
+- systemd unit template
 
-## Pre-deployment checks
+## Before you deploy
 
-1. Take and verify a completed server backup.
-2. Record the existing mod list, configuration and Java process command.
-3. Confirm the local integration test passed against the copied world.
-4. Create the Access application before enabling the tunnel route.
-5. Provision independent random mod-service and sidecar secrets.
-6. Confirm no service binds the mod API or Minecraft port publicly.
+1. Take a server backup and verify that you can restore it.
+2. Record the current mod list, config files, and Java launch command.
+3. Confirm local integration tests passed against a copied world.
+4. Create the Cloudflare Access application before you start the tunnel
+   connector.
+5. Generate independent random secrets for the mod and the sidecar.
+6. Confirm that the mod API and Minecraft ports are not public.
 
-## Planned production sequence
+## Deploy
 
-1. Stop Minecraft cleanly and verify the process exited.
-2. Copy the new mod JAR and protected mod configuration.
-3. Start Minecraft without publishing Cloudflare; verify logs and the private
+1. Stop Minecraft cleanly and confirm the process exited.
+2. Install the new mod JAR and protected mod config.
+3. Start Minecraft without Cloudflare publication. Check logs and the private
    health endpoint from the host.
-4. Install the sidecar under a dedicated unprivileged account and verify it on
+4. Install the sidecar under an unprivileged account and verify it on
    loopback.
-5. Start the named Tunnel connector using only its connector credential.
-6. Test Access allow and deny behavior, then perform a read-only dashboard
-   check before enabling craft ACLs.
+5. Start the named Tunnel connector with only its connector credential.
+6. Test Access allow and deny paths, then complete a read-only dashboard check
+   before you enable craft ACLs.
 
-## Rollback
+## Roll back
 
 1. Stop the Tunnel connector and sidecar.
 2. Stop Minecraft cleanly.
-3. Remove the new mod JAR and restore the pre-deployment configuration.
-4. Restore the world backup only if the mod changed persistent world data in a
-   way the previous server cannot read.
-5. Start Minecraft and verify the original mod list and world.
+3. Remove the new mod JAR and restore the previous config.
+4. Restore the world backup only if the new mod wrote world data that the
+   previous build cannot read.
+5. Start Minecraft and confirm the previous mod list and world.
 
-The gateway uses namespaced saved data and does not modify AE2 blocks, but a
-backup remains mandatory before first production use.
+The gateway stores namespaced saved data and does not rewrite AE2 blocks. Keep
+a backup before the first production install anyway.

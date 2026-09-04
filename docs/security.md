@@ -1,24 +1,24 @@
-# Security model
+# Security
 
 ## Trust boundaries
 
-- Cloudflare Access authenticates a browser identity but does not grant access
-  to any ME network.
-- The sidecar verifies the Access token and forwards a short-lived signed
-  assertion. Incoming identity headers are never trusted.
-- The mod verifies the sidecar signature, resolves the identity-to-player
-  binding, and enforces read or craft permission for every grid operation.
-- AE2 and Minecraft state are accessed only from the server thread.
+- Cloudflare Access authenticates the browser identity. It does not grant ME
+  network access by itself.
+- The sidecar verifies the Access JWT and issues a short-lived signed
+  assertion. It ignores inbound identity headers from the client.
+- The mod verifies the sidecar signature, maps the identity to a Minecraft
+  player link, and enforces read or craft permission for each grid call.
+- The mod touches AE2 and Minecraft state only on the server thread.
 
-The sidecar and mod listeners are loopback-only. A loopback source address does
-not bypass authentication.
+The sidecar and mod listen on loopback only. A loopback source address does not
+bypass authentication.
 
-## Crafting invariants
+## Crafting rules
 
-- Clients select an opaque key issued by the current inventory snapshot; they
-  cannot submit arbitrary item components or NBT.
-- Amounts, request bodies, active calculations and queue depth are bounded.
-- Planning and submission independently recheck identity, grid ACL and grid
+- Clients use opaque item keys from the current inventory snapshot. They cannot
+  submit arbitrary item components or NBT.
+- Amounts, request bodies, active calculations, and queue depth are bounded.
+- Plan calculation and submission each recheck identity, grid ACL, and grid
   anchor.
 - Plans expire and can be submitted once.
 - An idempotency key returns the first terminal submission result.
@@ -26,17 +26,17 @@ not bypass authentication.
 
 ## Production requirements
 
-- Cloudflare Access must be configured before the Tunnel connector starts.
-- Development identity mode must be disabled.
-- Mod and sidecar secrets must be independent random values and readable only
-  by their service accounts.
-- Only the sidecar hostname is routed by the tunnel; the Minecraft and mod API
-  ports are never tunnel ingress services.
-- Audit logs must avoid tokens, item components and request bodies.
+- Configure Cloudflare Access before you start the Tunnel connector.
+- Disable development identity mode.
+- Use independent random secrets for the mod and sidecar, readable only by
+  their service accounts.
+- Route only the sidecar hostname through the tunnel. Do not expose Minecraft
+  or the mod API as tunnel ingress.
+- Keep tokens, item components, and request bodies out of audit logs.
 
-## Explicitly out of scope
+## Out of scope
 
-- Protection from a compromised Minecraft host or operator account.
-- Availability during host, ISP, Cloudflare or identity-provider outages.
-- Exact attribution inside AE2 versions that only support a service/fake-player
-  action source. The gateway audit log remains authoritative in that case.
+- A compromised Minecraft host or operator account
+- Availability during host, ISP, Cloudflare, or identity-provider outages
+- Exact in-game attribution on AE2 builds that only expose a service or
+  fake-player action source; use the gateway audit log in that case

@@ -1,18 +1,18 @@
 # AE2 Gateway
 
-AE2 Gateway is a server-side Forge mod and private web dashboard for observing
-an Applied Energistics 2 network and submitting deliberately confirmed crafting
-requests.
+AE2 Gateway lets you inspect an Applied Energistics 2 (AE2) network and submit
+confirmed crafting jobs from a private web dashboard.
 
-The project has three deployable layers:
+The repository has three parts:
 
-- `mod/` — Forge 1.20.1 mod that owns AE2 access, grid ACLs and crafting safety.
-- `sidecar/` — loopback reverse proxy that validates Cloudflare Access identity.
-- `dashboard/` — dense React interface embedded into the sidecar release.
+- `mod/`: Forge 1.20.1 mod that talks to AE2, enforces grid ACLs, and serves a
+  loopback HTTP API
+- `sidecar/`: Go process that authenticates Cloudflare Access and proxies
+  allowlisted API routes to the mod
+- `dashboard/`: React UI that the sidecar embeds in its release package
 
-The browser never connects to the Minecraft mod directly. In production,
-Cloudflare Tunnel publishes only the sidecar. The mod API remains on loopback
-and requires a separate service credential.
+Browsers reach only the sidecar. The mod API stays on loopback and requires a
+separate service secret.
 
 ```text
 Browser
@@ -23,16 +23,15 @@ Browser
   → AE2 grid
 ```
 
-## Development
+## Develop locally
 
-Prerequisites:
+You need:
 
-- Temurin/OpenJDK 17
+- Temurin or OpenJDK 17
 - Go
 - Node.js and pnpm
 
-Copy `.env.example` to `.env` only for local development. Do not commit
-credentials.
+Install dependencies and run tests:
 
 ```sh
 pnpm --dir dashboard install
@@ -41,31 +40,42 @@ pnpm --dir dashboard test
 (cd mod && ./gradlew test build)
 ```
 
-The local Minecraft integration instance lives outside this repository at
-`/Users/pixie/star-tech-2-test`.
+For local Minecraft testing, use a server copy outside this repo (for example
+`/Users/pixie/star-tech-2-test`):
 
 ```sh
 ./scripts/test-server.sh start      # Minecraft on 127.0.0.1:25566
 ./scripts/test-sidecar.sh start     # dashboard on http://127.0.0.1:8080
 ```
 
-Local sidecar uses `AE2_DEV_IDENTITY` so Cloudflare Access is not required on
-loopback.
+For UI work with hot reload, also run:
 
-## Cloudflare setup
+```sh
+pnpm --dir dashboard dev --host 127.0.0.1 --port 5173
+```
 
-No Cloudflare resources are created automatically. The host that runs Minecraft
-should receive only a Tunnel connector credential — never an account-wide API
-token, R2 key, or DNS token.
+Then open `http://127.0.0.1:5173`. The Vite server proxies `/api` to the
+sidecar.
 
-### 1. Choose a hostname
+Local sidecar mode sets `AE2_DEV_IDENTITY`, so Cloudflare Access is not
+required on loopback. Do not set `AE2_DEV_IDENTITY` in production.
 
-Pick a hostname on a zone already in Cloudflare, for example
+Copy `.env.example` to `.env` only for local notes. Do not commit secrets.
+
+## Set up Cloudflare
+
+This repo does not create Cloudflare resources for you. Put only a Tunnel
+connector credential on the Minecraft host. Do not copy account API tokens, R2
+keys, or DNS tokens there.
+
+### Choose a hostname
+
+Use a hostname on a Cloudflare zone you control, such as
 `ae2-test.example.com`.
 
-### 2. Authenticate `cloudflared`
+### Authenticate cloudflared
 
-On a trusted admin machine (not necessarily the Minecraft host):
+On an admin machine:
 
 ```sh
 brew install cloudflared   # or the Linux package
@@ -73,33 +83,33 @@ cloudflared tunnel login
 ```
 
 If the browser downloads `cert.pem` instead of writing
-`~/.cloudflared/cert.pem`, move it into place:
+`~/.cloudflared/cert.pem`, install it:
 
 ```sh
 mkdir -p ~/.cloudflared
 install -m 600 ~/Downloads/cert.pem ~/.cloudflared/cert.pem
 ```
 
-That certificate is account/zone scoped. Keep it private.
+Keep that certificate private.
 
-### 3. Create the tunnel and DNS route
+### Create the tunnel and DNS record
 
-From this repo (after packaging Linux artifacts and installing the sidecar on
-the host):
+After you package Linux artifacts and install the sidecar on the host, you can
+run:
 
 ```sh
 ./scripts/setup-cloudflare-remote-test.sh ae2-test.example.com
 ```
 
-Or manually:
+Or create the tunnel manually:
 
 ```sh
 cloudflared tunnel create ae2-gateway
 cloudflared tunnel route dns ae2-gateway ae2-test.example.com
 ```
 
-Install `/etc/cloudflared/config.yml` on the Minecraft host with ingress that
-points only at the sidecar:
+On the Minecraft host, install `/etc/cloudflared/config.yml` so ingress points
+only at the sidecar:
 
 ```yaml
 tunnel: <TUNNEL_UUID>
@@ -122,37 +132,38 @@ cloudflared tunnel --config /etc/cloudflared/config.yml ingress validate
 cloudflared tunnel --config /etc/cloudflared/config.yml run
 ```
 
-Never publish the Minecraft port or the mod API (`8765`) through the tunnel.
+Do not publish the Minecraft port or the mod API port (`8765`) through the
+tunnel. Keep the catch-all `404` ingress rule.
 
-### 4. Add a real Access login method
+### Add an Access login method
 
-Zero Trust defaults to **One-time PIN** (email codes). Those emails are often
-unreliable. Add Google, GitHub, or another IdP first:
+Zero Trust defaults to **One-time PIN**. Email delivery is often unreliable, so
+add Google, GitHub, Cloudflare, or another identity provider first:
 
-1. Cloudflare One / Zero Trust → **Settings → Authentication**
-   (or **Integrations → Identity providers**)
-2. **Login methods → Add** → Google or GitHub
+1. In Cloudflare One, open **Settings > Authentication** (or **Integrations >
+   Identity providers**).
+2. Click **Login methods > Add**, then choose Google or GitHub.
 3. Create the OAuth app and use the callback Cloudflare shows, usually
-   `https://<team>.cloudflareaccess.com/cdn-cgi/access/callback`
-4. Only after that IdP exists will it appear under the Access application's
-   **Login methods** list (application details cannot invent new IdPs)
+   `https://<team>.cloudflareaccess.com/cdn-cgi/access/callback`.
+4. After the IdP exists, it appears under the Access application **Login
+   methods** list.
 
-Cloudflare's own account login can also be added as an IdP if you prefer.
+### Create the Access application
 
-### 5. Create the Access application
+1. Open **Access > Applications > Add**, then choose self-hosted.
+2. Set the application domain to the tunnel hostname
+   (`ae2-test.example.com`).
+3. Allow only the identities you intend to use. Prefer IdP MFA.
+4. Copy the application audience (`AUD`) from the application details.
 
-1. Zero Trust → **Access → Applications → Add** → self-hosted
-2. Application domain: the same hostname as the tunnel (`ae2-test.example.com`)
-3. Policy: Allow only your identity (email / IdP account). Prefer IdP MFA.
-4. Copy the application **AUD** (audience) from the application details
+Unauthenticated browser requests must redirect to
+`https://<team>.cloudflareaccess.com/...`. The origin must stay unreachable
+from the public internet.
 
-Unauthenticated requests must redirect to
-`https://<team>.cloudflareaccess.com/...`. Direct origin access must remain
-impossible from the public internet.
+### Configure the sidecar
 
-### 6. Configure the sidecar for Access
-
-On the host, set production env (no `AE2_DEV_IDENTITY`):
+On the host, set production environment variables and omit
+`AE2_DEV_IDENTITY`:
 
 ```sh
 AE2_LISTEN_ADDR=127.0.0.1:8080
@@ -164,25 +175,29 @@ AE2_CF_ISSUER=https://<team>.cloudflareaccess.com
 AE2_CF_AUDIENCE=<Access application AUD>
 ```
 
-`AE2_PUBLIC_ORIGIN` must be exact (scheme + host). The sidecar rejects mismatched
-`Host` / `Origin` headers. `AE2_DEV_IDENTITY` is loopback-only and must not be
-set when `AE2_PUBLIC_ORIGIN` is a public hostname.
+`AE2_PUBLIC_ORIGIN` must match the browser origin exactly. The sidecar rejects
+mismatched `Host` and `Origin` headers.
 
-Templates live in `deploy/cloudflare/` and `deploy/systemd/`.
+Templates are in `deploy/cloudflare/` and `deploy/systemd/`.
 
-### 7. First login checklist
+### Complete first login
 
-1. Open `https://ae2-test.example.com` in a private window → Access login
-2. After login, the dashboard loads
-3. Join the Minecraft server and link: dashboard **Generate link code**, then
-   `/ae2gateway link <code>`
-4. Look at an AE2 node and run `/ae2gateway enroll <alias>`
+1. Open `https://ae2-test.example.com` in a private window and sign in through
+   Access.
+2. In the dashboard, click **Generate link code**.
+3. Join the Minecraft server and run `/ae2gateway link <code>`.
+4. Look at an AE2 node and run `/ae2gateway enroll <alias>`.
 
-If the Minecraft test instance binds `127.0.0.1` only, reach it with an SSH
-local forward, for example `ssh -L 25566:127.0.0.1:25566 <host>`.
+If the Minecraft instance binds only `127.0.0.1`, forward a local port:
 
-## Deployment boundary
+```sh
+ssh -L 25566:127.0.0.1:25566 <host>
+```
 
-Nothing in this repository automatically copies files to, restarts, or changes
-the production server. Production transfer is intentionally a manual,
-separately approved operation. See `docs/deployment.md`.
+Then connect Minecraft to `127.0.0.1:25566`.
+
+## Deploy to production
+
+This repository does not copy files to, restart, or change the production
+server. Treat production transfer as a manual, separately approved step. See
+[Deployment](docs/deployment.md).

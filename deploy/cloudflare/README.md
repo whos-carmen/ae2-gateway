@@ -1,39 +1,38 @@
-# Cloudflare publication checklist
+# Cloudflare checklist
 
-No Cloudflare resources are created by this repository automatically. The
-end-to-end steps, including Access IdP setup and sidecar env vars, live in the
-root [README](../../README.md#cloudflare-setup).
+This repo does not create Cloudflare resources automatically. For the full
+setup, see [Cloudflare setup](../../README.md#set-up-cloudflare) in the root
+README.
 
-## Required account preparation
+## Prepare the account
 
 1. Choose a hostname such as `ae2.example.com`.
-2. Authenticate `cloudflared` interactively (`cloudflared tunnel login`), or
-   create a narrowly scoped API token:
+2. Authenticate `cloudflared` with `cloudflared tunnel login`, or create a
+   narrowly scoped API token with:
    - Account: Cloudflare Tunnel Edit
    - Account: Access Apps and Policies Edit
    - Zone: DNS Edit
    - Zone: Zone Read
-3. Create a named tunnel and route only the chosen hostname.
-4. Add a real Access identity provider (Google / GitHub / Cloudflare) before
-   relying on One-time PIN email codes.
-5. Create the Access self-hosted application before starting the connector.
-6. Use an Allow policy containing only the intended identities or IdP group and
-   require MFA at the identity provider.
+3. Create a named tunnel and route only that hostname.
+4. Add an Access identity provider such as Google, GitHub, or Cloudflare
+   before you rely on One-time PIN email codes.
+5. Create the Access self-hosted application before you start the connector.
+6. Allow only the identities or IdP groups you intend to use. Prefer IdP MFA.
 7. Copy the application audience (`AUD`) into the sidecar environment.
-8. Test unauthenticated access from a private browser window. It must redirect
-   to Access and the origin must remain unreachable directly.
+8. From a private browser window, confirm unauthenticated access redirects to
+   Access and that the origin is unreachable directly.
 
-The production host receives only the Tunnel connector credential. Do not copy
-an account-management API token, R2 key, or DNS token to the Minecraft server.
+Put only the Tunnel connector credential on the Minecraft host. Do not copy an
+account-management API token, R2 key, or DNS token there.
 
-## Connector
+## Run the connector
 
-Copy `config.yml.example` to the host's protected cloudflared configuration,
-replace the tunnel UUID, credential path and hostname, and validate:
+Copy `config.yml.example` to the host cloudflared config, replace the tunnel
+UUID, credential path, and hostname, then validate:
 
 ```sh
 cloudflared tunnel --config /etc/cloudflared/config.yml ingress validate
 cloudflared tunnel --config /etc/cloudflared/config.yml run
 ```
 
-The final catch-all 404 ingress rule is mandatory.
+Keep the final catch-all `404` ingress rule.
