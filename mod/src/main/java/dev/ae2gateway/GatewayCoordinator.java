@@ -301,7 +301,7 @@ final class GatewayCoordinator implements AutoCloseable {
         UUID planId = UUID.randomUUID();
         Instant expires = now.plus(config.planTtlSeconds, ChronoUnit.SECONDS);
         PlanEntry entry = new PlanEntry(planId, gridId, identity.subject, link.player(), key, amount,
-                key.getDisplayName().getString(), expires,
+                GatewayDisplayNames.of(key), expires,
                 expires.plus(config.planRetentionSeconds, ChronoUnit.SECONDS), resolved.grid, source, future);
         plans.put(planId, entry);
         audit("craft_plan_created", identity.subject, gridId.toString(), planId.toString());
@@ -461,7 +461,7 @@ final class GatewayCoordinator implements AutoCloseable {
             String token = CoreLogic.opaqueToken(config.serviceSecret, enrollment.id, key.toTagGeneric().toString());
             keys.put(token, key);
             String type = key instanceof AEItemKey ? "item" : key instanceof AEFluidKey ? "fluid" : "other";
-            items.add(new ItemView(token, type, key.getId().toString(), key.getDisplayName().getString(),
+            items.add(new ItemView(token, type, key.getId().toString(), GatewayDisplayNames.of(key),
                     key.getModId(), amounts.getOrDefault(key, 0L), entry.getValue()));
         }
         items.sort(Comparator.comparing(ItemView::displayName, String.CASE_INSENSITIVE_ORDER)
@@ -516,7 +516,7 @@ final class GatewayCoordinator implements AutoCloseable {
                     if (stored == 0 && crafting == 0 && scheduled == 0) {
                         continue;
                     }
-                    built.add(new CpuItemView(key.getDisplayName().getString(), key.getId().toString(),
+                    built.add(new CpuItemView(GatewayDisplayNames.of(key), key.getId().toString(),
                             stored, crafting, scheduled));
                 }
                 built.sort(Comparator
@@ -535,7 +535,7 @@ final class GatewayCoordinator implements AutoCloseable {
         String name = cpu.getName() == null ? "" : cpu.getName().getString();
         String cpuId = CoreLogic.opaqueToken(config.serviceSecret, enrollment.id,
                 "cpu:" + index + ":" + name + ":" + cpu.getAvailableStorage());
-        String output = status == null ? null : status.crafting().what().getDisplayName().getString();
+        String output = status == null ? null : GatewayDisplayNames.of(status.crafting().what());
         Double progress = status == null || status.totalItems() == 0 ? null
                 : Math.min(1.0, (double) status.progress() / status.totalItems());
         Long elapsed = status == null ? null : TimeUnit.NANOSECONDS.toMillis(status.elapsedTimeNanos());
@@ -694,7 +694,7 @@ final class GatewayCoordinator implements AutoCloseable {
         for (CraftingPlanSummaryEntry entry : summary.getEntries()) {
             long missingAmount = entry.getMissingAmount();
             PlanEntryView view = new PlanEntryView(
-                    entry.getWhat().getDisplayName().getString(),
+                    GatewayDisplayNames.of(entry.getWhat()),
                     entry.getStoredAmount(),
                     entry.getCraftAmount(),
                     missingAmount);

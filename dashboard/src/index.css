@@ -1,39 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sans: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  --canvas: #e9ecef;
+  --canvas: #ececec;
   --surface: #ffffff;
-  --surface-2: #f5f6f7;
-  --surface-3: #e8ebee;
-  --sidebar: #f1f3f4;
-  --topbar: #202830;
-  --topbar-text: #f1f4f5;
-  --topbar-muted: #aeb7c0;
-  --text: #303942;
-  --text-secondary: #59646f;
-  --heading: #182129;
-  --muted: #7a8590;
-  --border: #d8dde1;
-  --border-strong: #c6ccd1;
-  --border-focus: #6d99ae;
-  --tree-line: #c5cbd0;
-  --hover: #e9f0f3;
-  --selected: #d9e7ed;
-  --selected-text: #182d37;
+  --surface-2: #f5f5f5;
+  --surface-3: #ebebeb;
+  --sidebar: #f2f2f2;
+  --topbar: #f7f7f7;
+  --topbar-text: #2a2a2a;
+  --topbar-muted: #7a7a7a;
+  --text: #333333;
+  --text-secondary: #5c5c5c;
+  --heading: #1a1a1a;
+  --muted: #808080;
+  --border: #d4d4d4;
+  --border-strong: #bdbdbd;
+  --border-focus: #8a8a8a;
+  --tree-line: #c8c8c8;
+  --hover: #ececec;
+  --selected: #e0e0e0;
+  --selected-text: #1a1a1a;
   --input: #ffffff;
-  --table-head: #f1f3f4;
-  --row-alt: #fafbfb;
-  --accent: #e2a33a;
-  --accent-dark: #bd8121;
-  --accent-strong: #a46c11;
-  --accent-soft: #fff5df;
-  --button-text: #1d252b;
+  --table-head: #f2f2f2;
+  --row-alt: #fafafa;
+  --accent: #5a5a5a;
+  --accent-dark: #3d3d3d;
+  --accent-strong: #2a2a2a;
+  --accent-soft: #f0f0f0;
+  --button-text: #1a1a1a;
   --green: #258657;
   --green-bg: #edf8f2;
   --green-border: #9acbb1;
@@ -43,10 +43,10 @@
   --red: #b54141;
   --red-bg: #fbeeee;
   --red-border: #e0aaaa;
-  --amber: #d49628;
-  --focus: #2e88ad;
-  --focus-ring: rgb(46 136 173 / 15%);
-  --panel-shadow: 0 1px 2px rgb(15 25 35 / 5%);
+  --amber: #a87820;
+  --focus: #6e6e6e;
+  --focus-ring: rgb(80 80 80 / 14%);
+  --panel-shadow: 0 1px 2px rgb(0 0 0 / 6%);
 }
 
 :root[data-theme="dark"] {
@@ -95,6 +95,6 @@
 
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 html, body, #root { min-width: 320px; min-height: 100%; margin: 0; }
-body { margin: 0; background: var(--canvas); }
+body { margin: 0; background: var(--canvas); font-family: var(--sans); color: var(--text); }
 button, input { font: inherit; }
 ::selection { color: var(--heading); background: var(--selected); }

@@ -544,7 +544,7 @@ function App() {
   const grid = grids.data?.grids[0]
 
   useEffect(() => {
-    document.documentElement.dataset.theme = 'dark'
+    document.documentElement.dataset.theme = 'light'
   }, [])
 
   const statusBits = [
@@ -557,7 +557,7 @@ function App() {
   return (
     <div className="app">
       <header className="bar">
-        <b>AE2 Gateway</b>
+        <b className="brand">AE2 Gateway</b>
         <span className="status">{statusBits.join(' · ')}</span>
         <span className="muted">grids {formatClock(grids.dataUpdatedAt)}</span>
         <button type="button" className="btn" onClick={() => void Promise.all([health.refetch(), grids.refetch()])}>

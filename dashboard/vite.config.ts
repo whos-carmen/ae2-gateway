@@ -7,8 +7,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
+        // Sidecar rejects mismatched Host; rewrite to the sidecar origin.
         target: process.env.VITE_API_PROXY ?? 'http://127.0.0.1:8080',
-        changeOrigin: false,
+        changeOrigin: true,
       },
     },
   },
