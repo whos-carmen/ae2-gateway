@@ -133,3 +133,21 @@ func publicJWK(kid string, key *rsa.PublicKey) jsonWebKey {
 		E:   base64.RawURLEncoding.EncodeToString(exponent),
 	}
 }
+
+func TestFixedAuthenticatorReturnsConfiguredIdentity(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "http://100.81.146.95:8080/api/v1/health", nil)
+	identity, err := (FixedAuthenticator{
+		Subject: "tailscale:pixie@example.test",
+		Email:   "pixie@example.test",
+	}).Authenticate(request)
+	if err != nil {
+		t.Fatalf("Authenticate() error = %v", err)
+	}
+	if identity.Subject != "tailscale:pixie@example.test" || identity.Email != "pixie@example.test" {
+		t.Fatalf("Authenticate() = %+v, want the configured identity", identity)
+	}
+
+	if _, err := (FixedAuthenticator{}).Authenticate(request); err == nil {
+		t.Fatal("Authenticate() accepted an empty identity")
+	}
+}

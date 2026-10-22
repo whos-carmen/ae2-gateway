@@ -18,43 +18,50 @@ const (
 )
 
 type Config struct {
-	ListenAddr      string
-	DistDir         string
-	ModURL          *url.URL
-	ModSecret       []byte
-	PublicOrigin    *url.URL
-	DevIdentity     string
-	CFIssuer        string
-	CFAudience      string
-	JWKSURL         string
-	MaxBodyBytes    int64
-	ProxyTimeout    time.Duration
-	RatePerMinute   int
-	RateBurst       int
-	MutatePerMinute int
-	MutateBurst     int
+	ListenAddr        string
+	DistDir           string
+	ModURL            *url.URL
+	ModSecret         []byte
+	PublicOrigin      *url.URL
+	AllowedOrigins    []*url.URL
+	DevIdentity       string
+	TrustTailscale    bool
+	TailscaleIdentity string
+	CFIssuer          string
+	CFAudience        string
+	JWKSURL           string
+	MaxBodyBytes      int64
+	ProxyTimeout      time.Duration
+	RatePerMinute     int
+	RateBurst         int
+	MutatePerMinute   int
+	MutateBurst       int
 }
 
 func LoadConfig() (Config, error) {
 	cfg := Config{
-		ListenAddr:      strings.TrimSpace(os.Getenv("AE2_LISTEN_ADDR")),
-		DistDir:         strings.TrimSpace(os.Getenv("AE2_DIST_DIR")),
-		DevIdentity:     strings.TrimSpace(os.Getenv("AE2_DEV_IDENTITY")),
-		CFIssuer:        strings.TrimRight(strings.TrimSpace(os.Getenv("AE2_CF_ISSUER")), "/"),
-		CFAudience:      strings.TrimSpace(os.Getenv("AE2_CF_AUDIENCE")),
-		MaxBodyBytes:    defaultMaxBodyBytes,
-		ProxyTimeout:    15 * time.Second,
-		RatePerMinute:   120,
-		RateBurst:       30,
-		MutatePerMinute: 12,
-		MutateBurst:     4,
+		ListenAddr:        strings.TrimSpace(os.Getenv("AE2_LISTEN_ADDR")),
+		DistDir:           strings.TrimSpace(os.Getenv("AE2_DIST_DIR")),
+		DevIdentity:       strings.TrimSpace(os.Getenv("AE2_DEV_IDENTITY")),
+		TailscaleIdentity: strings.TrimSpace(os.Getenv("AE2_TAILSCALE_IDENTITY")),
+		CFIssuer:          strings.TrimRight(strings.TrimSpace(os.Getenv("AE2_CF_ISSUER")), "/"),
+		CFAudience:        strings.TrimSpace(os.Getenv("AE2_CF_AUDIENCE")),
+		MaxBodyBytes:      defaultMaxBodyBytes,
+		ProxyTimeout:      15 * time.Second,
+		RatePerMinute:     120,
+		RateBurst:         30,
+		MutatePerMinute:   12,
+		MutateBurst:       4,
 	}
 
 	var err error
+	if cfg.TrustTailscale, err = envBool("AE2_TRUST_TAILSCALE"); err != nil {
+		return Config{}, err
+	}
 	if cfg.ListenAddr == "" {
 		return Config{}, errors.New("AE2_LISTEN_ADDR is required")
 	}
-	if err = validateListenAddress(cfg.ListenAddr); err != nil {
+	if err = validateListenAddress(cfg.ListenAddr, cfg.TrustTailscale); err != nil {
 		return Config{}, err
 	}
 	if cfg.DistDir == "" {
@@ -76,17 +83,27 @@ func LoadConfig() (Config, error) {
 	if len(cfg.ModSecret) < minimumSecretBytes {
 		return Config{}, fmt.Errorf("AE2_MOD_SECRET must be at least %d bytes", minimumSecretBytes)
 	}
-	cfg.PublicOrigin, err = parseOrigin(os.Getenv("AE2_PUBLIC_ORIGIN"))
-	if err != nil {
+	if cfg.AllowedOrigins, err = parseOrigins(os.Getenv("AE2_PUBLIC_ORIGIN")); err != nil {
 		return Config{}, err
 	}
+	cfg.PublicOrigin = cfg.AllowedOrigins[0]
 
-	if cfg.DevIdentity != "" {
+	if cfg.TrustTailscale {
+		if cfg.DevIdentity != "" {
+			return Config{}, errors.New("AE2_DEV_IDENTITY and AE2_TRUST_TAILSCALE are mutually exclusive")
+		}
+		if err := validateDevIdentity(cfg.TailscaleIdentity); err != nil {
+			return Config{}, fmt.Errorf("AE2_TAILSCALE_IDENTITY: %w", err)
+		}
+		originIP := net.ParseIP(cfg.PublicOrigin.Hostname())
+		if originIP == nil || !(originIP.IsLoopback() || isTailscaleAddress(originIP)) {
+			return Config{}, errors.New("AE2_TRUST_TAILSCALE requires the first AE2_PUBLIC_ORIGIN to use a literal loopback or Tailscale IP")
+		}
+	} else if cfg.DevIdentity != "" {
 		if err := validateDevIdentity(cfg.DevIdentity); err != nil {
 			return Config{}, err
 		}
-		originIP := net.ParseIP(cfg.PublicOrigin.Hostname())
-		if originIP == nil || !originIP.IsLoopback() {
+		if !allOriginsLoopback(cfg.AllowedOrigins) {
 			return Config{}, errors.New("AE2_DEV_IDENTITY requires AE2_PUBLIC_ORIGIN to use a literal loopback IP")
 		}
 	} else {
@@ -123,7 +140,7 @@ func LoadConfig() (Config, error) {
 	return cfg, nil
 }
 
-func validateListenAddress(address string) error {
+func validateListenAddress(address string, allowTailscale bool) error {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil || port == "" {
 		return fmt.Errorf("AE2_LISTEN_ADDR must be a host:port address: %w", err)
@@ -133,10 +150,35 @@ func validateListenAddress(address string) error {
 		return errors.New("AE2_LISTEN_ADDR port must be numeric and nonzero")
 	}
 	ip := net.ParseIP(host)
-	if ip == nil || !ip.IsLoopback() {
+	if ip == nil {
 		return errors.New("AE2_LISTEN_ADDR must use a literal loopback IP")
 	}
-	return nil
+	if ip.IsLoopback() {
+		return nil
+	}
+	if allowTailscale && isTailscaleAddress(ip) {
+		return nil
+	}
+	return errors.New("AE2_LISTEN_ADDR must use a literal loopback IP")
+}
+
+// isTailscaleAddress reports whether ip is in the 100.64.0.0/10 range that
+// Tailscale assigns to tailnet nodes.
+func isTailscaleAddress(ip net.IP) bool {
+	v4 := ip.To4()
+	return v4 != nil && v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127
+}
+
+func envBool(name string) (bool, error) {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return false, nil
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("%s must be a boolean", name)
+	}
+	return value, nil
 }
 
 func parseModURL(raw string) (*url.URL, error) {
@@ -167,6 +209,44 @@ func parseOrigin(raw string) (*url.URL, error) {
 	}
 	u.Path = ""
 	return u, nil
+}
+
+// parseOrigins accepts a comma-separated list. The first entry is canonical:
+// its scheme drives cookie and security-header policy. The rest are additional
+// hosts and origins the browser may use.
+func parseOrigins(raw string) ([]*url.URL, error) {
+	seen := make(map[string]bool)
+	var origins []*url.URL
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		origin, err := parseOrigin(part)
+		if err != nil {
+			return nil, err
+		}
+		key := origin.String()
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		origins = append(origins, origin)
+	}
+	if len(origins) == 0 {
+		return nil, errors.New("AE2_PUBLIC_ORIGIN must contain at least one origin")
+	}
+	return origins, nil
+}
+
+func allOriginsLoopback(origins []*url.URL) bool {
+	for _, origin := range origins {
+		ip := net.ParseIP(origin.Hostname())
+		if ip == nil || !ip.IsLoopback() {
+			return false
+		}
+	}
+	return true
 }
 
 func validateDevIdentity(identity string) error {

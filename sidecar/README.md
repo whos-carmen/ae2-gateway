@@ -42,6 +42,22 @@ or origins in this mode. Each request must also come from loopback. Do not
 deploy with `AE2_DEV_IDENTITY` set. Production requires an `https` public
 origin.
 
+### Tailscale-trusted mode
+
+To run the dashboard directly on a tailnet address without Cloudflare, set:
+
+- `AE2_TRUST_TAILSCALE=1`
+- `AE2_TAILSCALE_IDENTITY`: the identity every request is treated as, a plain
+  email address
+- `AE2_LISTEN_ADDR`: a literal loopback or `100.64.0.0/10` (Tailscale) address
+- `AE2_PUBLIC_ORIGIN`: the same address as a browser origin, `http` or `https`. A
+  comma-separated list is accepted; the first entry is canonical and the rest
+  are additional accepted hosts and origins.
+
+Tailnet membership is then the access boundary. Bind only the Tailscale address
+and never publish that port beyond the tailnet. `AE2_DEV_IDENTITY` and the
+Cloudflare settings are ignored in this mode and must not be combined with it.
+
 ## Browser and mod protocol
 
 Mutating requests require:

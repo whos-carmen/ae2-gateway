@@ -21,10 +21,17 @@ func main() {
 
 	var authenticator Authenticator
 	mode := "cloudflare"
-	if config.DevIdentity != "" {
+	switch {
+	case config.TrustTailscale:
+		authenticator = FixedAuthenticator{
+			Subject: "tailscale:" + config.TailscaleIdentity,
+			Email:   config.TailscaleIdentity,
+		}
+		mode = "tailscale-trusted"
+	case config.DevIdentity != "":
 		authenticator = DevAuthenticator{Email: config.DevIdentity}
 		mode = "loopback-development"
-	} else {
+	default:
 		authenticator = NewCloudflareAuthenticator(
 			config.CFIssuer,
 			config.CFAudience,

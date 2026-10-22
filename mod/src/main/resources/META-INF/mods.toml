@@ -27,6 +27,6 @@ side="SERVER"
 [[dependencies.ae2_gateway]]
 modId="ae2"
 mandatory=true
-versionRange="[15.5.0-uelm]"
+versionRange="[15.5.0-uelm,16)"
 ordering="AFTER"
 side="SERVER"

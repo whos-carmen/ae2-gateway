@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -26,6 +27,9 @@ type App struct {
 }
 
 func NewApp(config Config, authenticator Authenticator, logger *slog.Logger) (*App, error) {
+	if len(config.AllowedOrigins) == 0 && config.PublicOrigin != nil {
+		config.AllowedOrigins = []*url.URL{config.PublicOrigin}
+	}
 	staticHandler, err := NewStaticHandler(config.DistDir, config.PublicOrigin.Scheme == "https")
 	if err != nil {
 		return nil, err
@@ -62,11 +66,11 @@ func (a *App) ServeHTTP(baseWriter http.ResponseWriter, request *http.Request) {
 		)
 	}()
 
-	if !strings.EqualFold(request.Host, a.config.PublicOrigin.Host) {
+	if !validHost(request, a.config.AllowedOrigins) {
 		writeJSONError(writer, http.StatusMisdirectedRequest, "invalid host")
 		return
 	}
-	if !validOriginHeader(request, a.config.PublicOrigin.String(), false) {
+	if !validOriginHeader(request, a.config.AllowedOrigins, false) {
 		writeJSONError(writer, http.StatusForbidden, "invalid origin")
 		return
 	}
@@ -105,7 +109,7 @@ func (a *App) ServeHTTP(baseWriter http.ResponseWriter, request *http.Request) {
 		return
 	}
 	if route.mutation {
-		if !validOriginHeader(request, a.config.PublicOrigin.String(), true) {
+		if !validOriginHeader(request, a.config.AllowedOrigins, true) {
 			writeJSONError(writer, http.StatusForbidden, "origin required")
 			return
 		}
@@ -154,7 +158,16 @@ func (a *App) serveHealth(writer http.ResponseWriter, request *http.Request) {
 	_ = json.NewEncoder(writer).Encode(map[string]string{"status": "ok", "version": version})
 }
 
-func validOriginHeader(request *http.Request, expected string, required bool) bool {
+func validHost(request *http.Request, origins []*url.URL) bool {
+	for _, origin := range origins {
+		if strings.EqualFold(request.Host, origin.Host) {
+			return true
+		}
+	}
+	return false
+}
+
+func validOriginHeader(request *http.Request, origins []*url.URL, required bool) bool {
 	values := request.Header.Values("Origin")
 	if len(values) == 0 {
 		return !required
@@ -162,7 +175,12 @@ func validOriginHeader(request *http.Request, expected string, required bool) bo
 	if len(values) != 1 || strings.Contains(values[0], ",") {
 		return false
 	}
-	return values[0] == expected
+	for _, origin := range origins {
+		if values[0] == origin.String() {
+			return true
+		}
+	}
+	return false
 }
 
 func validCSRFRequest(request *http.Request) bool {

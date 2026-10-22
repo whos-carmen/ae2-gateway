@@ -46,6 +46,22 @@ func (a DevAuthenticator) Authenticate(r *http.Request) (Identity, error) {
 	return Identity{Subject: "dev:" + a.Email, Email: a.Email}, nil
 }
 
+// FixedAuthenticator returns one configured identity for every request. It is
+// only used when the listener is bound to a Tailscale address, so tailnet
+// membership is the access boundary and there is no per-request identity to
+// verify.
+type FixedAuthenticator struct {
+	Subject string
+	Email   string
+}
+
+func (a FixedAuthenticator) Authenticate(*http.Request) (Identity, error) {
+	if a.Subject == "" || a.Email == "" {
+		return Identity{}, errUnauthorized
+	}
+	return Identity{Subject: a.Subject, Email: a.Email}, nil
+}
+
 type accessClaims struct {
 	Email string `json:"email"`
 	jwt.RegisteredClaims

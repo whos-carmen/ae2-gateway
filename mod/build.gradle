@@ -37,7 +37,7 @@ repositories {
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.4.20'
-    implementation fg.deobf('local:appliedenergistics2-forge:15.5.0-uelm')
+    implementation fg.deobf('local:appliedenergistics2-forge:15.5.4-uelm')
     runtimeOnly fg.deobf('org.appliedenergistics:guideme:20.1.7')
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
